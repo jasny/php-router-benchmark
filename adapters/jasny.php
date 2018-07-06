@@ -15,29 +15,36 @@ $box->service('build-routes', function() {
     };
 });
 
-function generateCode($pointer, $i = 0, $indent = "") {
+function generateCode($pointer, $i) {
     if (count($pointer) === 1 && isset($pointer['*'])) {
-        return generateCode($pointer['*'], $i+1, $indent); // only a default case
+        return generateCode($pointer['*'], $i+1); // only a default case
     }
 
-    $code = "switch (" . ($i < 0 ? "\$host" : "\$parts[$i] ?? ''") . ") {\n";
+    $code = "switch (" . ($i < 0 ? "\$host" : "\$segments[$i] ?? ''") . ") {";
     
     foreach ($pointer as $key => $sub) {
-        $code .= $key !== '*' ? "{$indent}  case '$key': " : "{$indent}  default: ";
-        if (is_array($sub)) {
-            $code .= generateCode($sub, $i+1, $indent . "  ");
+        $code .= $key !== '*' ? "case '$key': " : "default: ";
+        if ($key !== '') {
+            $code .= generateCode($sub, $i+1);
         } else {
-            $code .= "return [";
+            $code .= "switch (\$method) {";
 
-            foreach ($sub as $var => $i) {
-              $code .= "'$var' => \$parts[$i], ";
+            foreach ($sub as $methods => $vars) {
+                $code .= "case '" . str_replace('|', "':case '", $methods) . "':"
+                  . "return [";
+
+                foreach ($vars as $var => $i) {
+                    $code .= "'$var' => \$segments[$i], ";
+                }
+
+                $code .= "];";
             }
 
-            $code .= "];\n";
+            $code .= "}";
         }
     }
 
-    $code .= "{$indent}}\n";
+    $code .= "}";
 
     return $code;
 }
@@ -49,7 +56,7 @@ $box->service('add-routes', function() {
         $grid = [];
 
         foreach ($routes as $route) {
-            $parts = explode('/', trim($route['pattern'], '/'));
+            $segments = explode('/', trim($route['pattern'], '/'));
 
             if (!isset($grid[$route['host']])) {
                 $grid[$route['host']] = [];
@@ -58,8 +65,8 @@ $box->service('add-routes', function() {
             $pointer =& $grid[$route['host']];
             $vars = [];
 
-            foreach ($parts as $i => $part) {
-                [$match, $var] = explode(':', $part) + [1 => null];
+            foreach ($segments as $i => $segment) {
+                [$match, $var] = explode(':', $segment) + [1 => null];
 
                 if (!isset($pointer[$match])) {
                   $pointer[$match] = [];
@@ -71,13 +78,13 @@ $box->service('add-routes', function() {
                 $pointer =& $pointer[$match];
             }
 
-            $pointer[''] = (object)$vars;
+            $pointer[''][join('|', $route['methods'])] = $vars;
         }
 
         $code = "<?php\n"
-            . "return function(\$url, \$method, \$host = null) {\n"
-            . "  \$parts = explode('/', trim(\$url, '/'));\n"
-            . "  " . generateCode($grid, -1, "  ")
+            . "return function(\$url, \$method, \$host = null) {"
+            . "\$segments = explode('/', trim(\$url, '/'));"
+            . generateCode($grid, -1)
             . "};";
         
         file_put_contents("/tmp/router.php", $code);
