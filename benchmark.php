@@ -55,7 +55,7 @@ $benchmarks = [
             ]
         ]
     ],
-    [
+    /*[
         'filename' => 'subdomain',
         'nbRoutes' => 10,
         'forms' => [
@@ -90,7 +90,7 @@ $benchmarks = [
                 }
             ]
         ]
-    ]
+    ]*/
 ];
 
 $dirs = Dir::scan('./benchmarks', [

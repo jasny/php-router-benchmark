@@ -7,11 +7,10 @@ list($ids, $routes) = $buildRoutes($generator, [
     'isolated' => box('benchmark')->get('isolated')
 ]);
 
-$benchmark->run('FastRoute', function() use ($box, $generator, $ids, $routes) {
+$addRoutes = box('fast-route')->get('add-routes');
+$router = $addRoutes($routes);
 
-    $addRoutes = box('fast-route')->get('add-routes');
-    $router = $addRoutes($routes);
-
+$benchmark->run('FastRoute', function() use ($box, $generator, $router, $ids, $routes) {
     $strategy = box('benchmark')->get('strategy');
 
     foreach ($generator->methods() as $method) {
@@ -25,3 +24,7 @@ $benchmark->run('FastRoute', function() use ($box, $generator, $ids, $routes) {
         }
     }
 });
+
+$cleanup = box('fast-route')->get('cleanup');
+$cleanup();
+
