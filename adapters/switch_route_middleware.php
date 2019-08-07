@@ -3,23 +3,43 @@
 use Lead\Box\Box;
 use Jasny\SwitchRoute\Generator;
 use Jasny\SwitchRoute\NoInvoker;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+use Zend\Diactoros\Response;
 
-$box = box('switch-route', new Box());
+$box = box('switch-route-middleware', new Box());
 
-$box->service('function_name', function() {
-    return 'switch_route_' . rand(0, 100000);
+$box->service('class_name', function() {
+    return 'RouteMiddleware' . rand(0, 100000);
 });
 
 $box->service('script_file', function() use ($box) {
-    $fn = $box->get('function_name');
+    $class = $box->get('class_name');
 
-    return sys_get_temp_dir() . "/{$fn}.php";
+    return sys_get_temp_dir() . "/{$class}.php";
 });
 
 $box->service('generator', function() {
-    $invoker = new NoInvoker();
+    return new Generator(new Generator\GenerateRouteMiddleware());
+});
 
-    return new Generator(new Generator\GenerateFunction($invoker));
+$box->service('handler', function() {
+    return new class() implements RequestHandlerInterface{
+        public $goodResponse;
+        public $badResponse;
+
+        public $expected;
+
+        function __construct() {
+            $this->goodResponse = new Response();
+            $this->badResponse = new Response();
+        }
+
+        function handle(ServerRequestInterface $request): ResponseInterface {
+            return $request->getAttribute('route:{id}') === $this->expected ? $this->goodResponse : $this->badResponse;
+        }
+    };
 });
 
 $box->service('build-routes', function() {
@@ -34,11 +54,11 @@ $box->service('build-routes', function() {
 
 $box->service('add-routes', function() use ($box) {
     return function($routes) use ($box) {
-        $fn = $box->get('function_name');
+        $class = $box->get('class_name');
         $file = $box->get('script_file');
         $generator = $box->get('generator');
 
-        $generator->generate($fn, $file, function () use ($routes) {
+        $generator->generate($class, $file, function () use ($routes) {
             $switchRoutes = [];
 
             foreach ($routes as $route) {

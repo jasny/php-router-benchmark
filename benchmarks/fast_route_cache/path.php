@@ -1,17 +1,16 @@
 <?php
 $generator->template('/controller{%id%}/action{%id%}/{id}/{arg1}/{arg2}');
 
-$buildRoutes = box('fast-route-classic')->get('build-routes');
+$buildRoutes = box('fast-route-cache')->get('build-routes');
 
 list($ids, $routes) = $buildRoutes($generator, [
     'isolated' => box('benchmark')->get('isolated')
 ]);
 
-$benchmark->run('FastRoute*', function() use ($box, $generator, $ids, $routes) {
+$addRoutes = box('fast-route-cache')->get('add-routes');
+$router = $addRoutes($routes);
 
-    $addRoutes = box('fast-route-classic')->get('add-routes');
-    $router = $addRoutes($routes);
-
+$benchmark->run('FastRoute (cache)', function() use ($box, $generator, $router, $ids, $routes) {
     $strategy = box('benchmark')->get('strategy');
 
     foreach ($generator->methods() as $method) {
@@ -25,3 +24,7 @@ $benchmark->run('FastRoute*', function() use ($box, $generator, $ids, $routes) {
         }
     }
 });
+
+$cleanup = box('fast-route-cache')->get('cleanup');
+$cleanup();
+

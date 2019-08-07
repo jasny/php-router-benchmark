@@ -11,9 +11,8 @@ list($ids, $routes) = $buildRoutes($generator, [
 $addRoutes = box('switch-route')->get('add-routes');
 $addRoutes($routes);
 
-$router = box('switch-route')->get('function_name');
-
-$benchmark->run('SwitchRoute', function() use ($box, $generator, $router, $ids, $routes) {
+$benchmark->run('SwitchRoute', function() use ($box, $generator, $ids, $routes) {
+    $router = box('switch-route')->get('function_name');
     $strategy = box('benchmark')->get('strategy');
 
     foreach ($generator->methods() as $method) {
@@ -21,7 +20,7 @@ $benchmark->run('SwitchRoute', function() use ($box, $generator, $router, $ids, 
 
         $params = $router($method, "/controller{$id}/action{$id}/{$id}/arg1/arg2");
 
-        if ($params[2] !== (string) $id) {
+        if ($params[2]['id'] !== (string) $id) {
             return false;
         }
     }
